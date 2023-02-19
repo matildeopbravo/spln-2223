@@ -1,6 +1,6 @@
 import re
 from re import Match, finditer, search
-from typing import Optional
+from typing import Optional, TypedDict
 from collections.abc import Iterator
 from abc import ABC
 
@@ -25,10 +25,7 @@ class FullEntry(Entry):
     id: int
     name_types: list[str]  # a => adjective, f = feminine, m = masculine, pl => plural)
     categories: list[str]
-    es: str
-    en: str
-    pt: str
-    la: str
+    langs: dict[str, str]
     note: str
 
     rem_entries: Optional[list[RemissiveEntry]]
@@ -40,10 +37,7 @@ class FullEntry(Entry):
         self.variants = []
         self.name_types = name_types
         self.categories = []
-        self.es = ""
-        self.en = ""
-        self.pt = ""
-        self.la = ""
+        self.langs = {}
         self.note = ""
 
     def __str__(self) -> str:
@@ -59,9 +53,13 @@ class FullEntry(Entry):
             if self.syn:
                 s += "\n"
             s += "VAR.-" + ";".join(self.variants) + "\n"
-        langs = ["es " + self.es, "en " + self.en, "pt " + self.pt, "la " + self.la]
+        # improve this
+        langs = []
+        for k in self.langs:
+            langs.append(f"{k} => {self.langs[k]}")
         s += "\n".join(langs)
 
+        s = re.sub(" +", " ", s)
         return s
 
 
@@ -86,24 +84,50 @@ def parse_full_entry(header_match: Match, it: Iterator):
         content = next(it).group(1)
 
     # se for italico com algo la dentro entao vamos buscar as categorias
+    regex_lang = r"\s*(es|en|pt|la)\s*"
     curr_entry.categories = re.findall(categories_regex, match_italic.group(1))
     content = next(it).group(1)
     while sin_var_match := re.match(r"\s*(SIN|VAR).-(.*)\s*", content):
-        either_sin_var = sin_var_match.group(2).split(";")
+        # either_sin_var = sin_var_match.group(2).split(";")
+        sin_var_content = sin_var_match.group(2)
         if sin_var_match.group(1) == "SIN":
-            curr_entry.syn = either_sin_var
-        else:
-            curr_entry.variants = either_sin_var
-        # print(f"{curr_entry.syn}  e  {curr_entry.variants}")
-        content = next(it).group(1)
+            sin_string = sin_var_content
+            content = next(it).group(1)
+            while not re.match(regex_lang, content) and not re.search(
+                r"VAR.-", content
+            ):
+                sin_string += content
+                content = next(it).group(1)
+            curr_entry.syn = sin_string.split(";")
+        elif sin_var_match.group(1) == "VAR":
+            sin_string = sin_var_content
+            content = next(it).group(1)
+            while not re.match(regex_lang, content):
+                sin_string += content
+                content = next(it).group(1)
+            curr_entry.variants = sin_string.split(";")
 
-    print(curr_entry, end="\n\n")
+        # print(f"{curr_entry.syn}  e  {curr_entry.variants}")
+    while language_name_match := re.match(regex_lang, content):
+        lang = language_name_match.group(1)
+        curr_entry.langs[lang] = ""
+        content = next(it).group(1)
+        is_colon = False
+        while translation := re.match(r"<i>(.*)</i>", content) or (
+            is_colon := re.match(r"\s*;\s*", content)
+        ):
+            if is_colon:
+                curr_entry.langs[lang] += "; "
+            else:
+                curr_entry.langs[lang] += translation.group(1)
+            content = next(it).group(1)
+            is_colon = False
 
     return curr_entry
 
 
 def parse_data(data: str):
-    entries = {}
+    priv_entries = {}
     it = finditer(r"<text.*?>(.*\S+.*)</text>", data)
     for match in it:
         between_text = match.group(1)
@@ -112,9 +136,12 @@ def parse_data(data: str):
                 r"<b>\s*(\d+)\s*(.+?)\s+((?:\w+ )*\w+)</b>", between_text
             )
             if is_entry_header:
-                # print(is_entry_header.group(1) + "=>" + is_entry_header.group(2))
-                entry = parse_full_entry(is_entry_header, it)
-                entries[entry.id] = entry
+                try:
+                    # print(is_entry_header.group(1) + "=>" + is_entry_header.group(2))
+                    entry = parse_full_entry(is_entry_header, it)
+                    priv_entries[entry.id] = entry
+                except StopIteration:
+                    return priv_entries
 
     return entries
 
@@ -124,7 +151,7 @@ with open("medicina.xml", encoding="utf-8") as f:
     entries = parse_data(data)
 
     while True:
-        n = int(input("What entry would you like to see?"))
+        n = int(input("What entry would you like to see? "))
         if n in entries:
             print(entries[n])
         else:
