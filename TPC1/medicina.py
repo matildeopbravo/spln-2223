@@ -1,158 +1,224 @@
 import re
-from re import Match, finditer, search
-from typing import Optional, TypedDict
-from collections.abc import Iterator
-from abc import ABC
+import json
+
+texto = open("medicina.xml", "r").read()
 
 
-class Entry(ABC):
-    name: str
-    syn: list[str]
-    variants: list[str]
+def remove_header_footer(texto):
+    texto = re.sub(r"<text.*>V.*\n.*ocabulario.*\n.*<\/text>", "", texto)
+    texto = re.sub(r".*\n###\n.*\n", r"", texto)
+    texto = re.sub(r"<page.*\n|</page>\n", r"", texto)
 
-    def __init__(self, name: str, syn: list[str], variants: list[str]):
-        self.name = name
-        self.syn = syn
-        self.variants = variants
+    return texto
 
 
-class RemissiveEntry(Entry):
-    def __init__(self, name: str, syn: list[str]):
-        super().__init__(name, syn, [])
+texto = remove_header_footer(texto)
 
 
-class FullEntry(Entry):
-    id: int
-    name_types: list[str]  # a => adjective, f = feminine, m = masculine, pl => plural)
-    categories: list[str]
-    langs: dict[str, str]
-    note: str
-
-    rem_entries: Optional[list[RemissiveEntry]]
-
-    def __init__(self, id: int, name: str, name_types: list[str]):
-        self.name = name
-        self.id = id
-        self.syn = []
-        self.variants = []
-        self.name_types = name_types
-        self.categories = []
-        self.langs = {}
-        self.note = ""
-
-    def __str__(self) -> str:
-        s = f"{self.id} {self.name}     "
-        for name_type in self.name_types:
-            s += f" {name_type}"
-        s += "\n"
-        s += ";".join(self.categories)
-        s += "\n"
-        if self.syn:
-            s += "SIN.-" + ";".join(self.syn) + "\n"
-        if self.variants:
-            if self.syn:
-                s += "\n"
-            s += "VAR.-" + ";".join(self.variants) + "\n"
-        # improve this
-        langs = []
-        for k in self.langs:
-            langs.append(f"{k} => {self.langs[k]}")
-        s += "\n".join(langs)
-
-        s = re.sub(" +", " ", s)
-        return s
+def marcaE(texto):
+    texto = re.sub(r'<text.* font="3"><b>\s*(\d+\s+.*)</b></text>', r"###C \1", texto)
+    texto = re.sub(r'<text.* font="8"><b>\s*(.*)\s*</b></text>', r"###R \1", texto)
+    texto = re.sub(r'<text.* font="3"><b>\s*(\S.*)</b></text>', r"###R \1", texto)
+    texto = re.sub(r'<text.* font="11"><b>\s*(\S.*)</b></text>', r"###R \1", texto)
+    return texto
 
 
-def is_useful(content: str):
-    page_number_match = re.search(r"\s*\d+\s*$", content)
-    return content != "V" and content != "ocabulario" and not page_number_match
+texto = marcaE(texto)
 
 
-def parse_full_entry(header_match: Match, it: Iterator):
-    id = int(header_match.group(1))
-    name = header_match.group(2)
-    type = header_match.group(3)
-    curr_entry = FullEntry(id, name, type.split())
+def limpeza(texto):
+    texto = re.sub(r'<text.* font="4">.*</text>', r"", texto)
+    texto = re.sub(r'<text.* font="3">.*</text>', r"", texto)
+    texto = re.sub(r"<text[^<]*?>\s*<\/text>", r"", texto)
+    texto = re.sub(r"<text[^<]*?>\s*<b>\s*</b>\s*<\/text>", r"", texto)
+    return texto
 
-    content = next(it).group(1)  # between <text>
-    categories_regex = r"[A-zÀ-ú]+(?:\s[A-zÀ-ú]+)*"
-    while not (match_italic := re.match(r"<i>(.*\w+.*)<\/i>", content)):
-        rest_content = re.match(r"<(?:b|i)>(.*)</(?:b|i)>", content)
-        if rest_content:
-            # ver por causa do tipo at the end
-            curr_entry.name += rest_content.group(1)
-        content = next(it).group(1)
 
-    # se for italico com algo la dentro entao vamos buscar as categorias
-    regex_lang = r"\s*(es|en|pt|la)\s*"
-    curr_entry.categories = re.findall(categories_regex, match_italic.group(1))
-    content = next(it).group(1)
-    while sin_var_match := re.match(r"\s*(SIN|VAR).-(.*)\s*", content):
-        # either_sin_var = sin_var_match.group(2).split(";")
-        sin_var_content = sin_var_match.group(2)
-        if sin_var_match.group(1) == "SIN":
-            sin_string = sin_var_content
-            content = next(it).group(1)
-            while not re.match(regex_lang, content) and not re.search(
-                r"VAR.-", content
-            ):
-                sin_string += content
-                content = next(it).group(1)
-            curr_entry.syn = sin_string.split(";")
-        elif sin_var_match.group(1) == "VAR":
-            sin_string = sin_var_content
-            content = next(it).group(1)
-            while not re.match(regex_lang, content):
-                sin_string += content
-                content = next(it).group(1)
-            curr_entry.variants = sin_string.split(";")
+texto = limpeza(texto)
 
-        # print(f"{curr_entry.syn}  e  {curr_entry.variants}")
-    while language_name_match := re.match(regex_lang, content):
-        lang = language_name_match.group(1)
-        curr_entry.langs[lang] = ""
-        content = next(it).group(1)
-        is_colon = False
-        while translation := re.match(r"<i>(.*)</i>", content) or (
-            is_colon := re.match(r"\s*;\s*", content)
-        ):
-            if is_colon:
-                curr_entry.langs[lang] += "; "
+
+def marcaLinguas(texto):
+    texto = re.sub(r'<text.* font="0">\s*(\S+)\s*</text>', r"@ \1", texto)
+    texto = re.sub(r"@ ;", r";", texto)
+    texto = re.sub(r'<text.* font="7"><i>(.*)</i></text>', r"\1", texto)
+    return texto
+
+
+texto = marcaLinguas(texto)
+
+
+def marcaSIN_VAR(texto):
+    texto = re.sub(r'<text.* font="5">\s*(SIN.*)</text>', r"@\1", texto)
+    texto = re.sub(r'<text.* font="0">\s*(SIN.*)</text>', r"@\1", texto)
+    texto = re.sub(r'<text.* font="5">\s*(VAR.*)</text>', r"@\1", texto)
+    texto = re.sub(r'<text.* font="0">\s*(VAR.*)</text>', r"@\1", texto)
+    return texto
+
+
+texto = marcaSIN_VAR(texto)
+
+
+def marcaArea(texto):
+    texto = re.sub(r'<text.* font="6"><i>\s*(.*)\s*</i></text>', r"% \1", texto)
+    return texto
+
+
+texto = marcaArea(texto)
+
+
+def marcaVid(texto):
+    texto = re.sub(r'<text.* font="\d*">\s*(Vid\..*)</text>', r"\1", texto)
+    return texto
+
+
+texto = marcaVid(texto)
+
+
+def limpaFontSpec(texto):
+    texto = re.sub(r"<fontspec.*\n", r"", texto)
+    return texto
+
+
+texto = limpaFontSpec(texto)
+
+
+def marcaNota(texto):
+    texto = re.sub(r'<text.* font="9">(.*)</text>', r".\1", texto)
+    return texto
+
+
+texto = marcaNota(texto)
+
+
+def replace_values(texto):
+    texto = re.sub(r'<text.* font="5">(.*)</text>', r"\1", texto)
+    texto = re.sub(r'<text.* font="10"><i><b>(.*)</b></i></text>', r"\1", texto)
+    return texto
+
+
+texto = replace_values(texto)
+
+
+def fix_formatting(texto):
+    texto = re.sub(
+        r'<text.* font="\d+">\s*(\d+)\s*</text>\n###R(.*)', r"###C \1 \2", texto
+    )
+    return texto
+
+
+texto = fix_formatting(texto)
+
+
+def formulaQuimica(texto):
+    texto = re.sub(r'<text.* font="13"><b>\s*(\d+)\s*</b></text>', r"_\1", texto)
+    texto = re.sub(r'<text.* font="15"><i>\s*(\d+)\s*</i></text>', r"_\1", texto)
+    texto = re.sub(r'<text.* font="14">\s*(\d+)\s*</text>', r"_\1", texto)
+    return texto
+
+
+texto = formulaQuimica(texto)
+
+
+def end(texto):
+    texto = re.sub(r'<text.* font="0">\s*(\S.*)</text>', r"\1", texto)
+    texto = re.sub(r"###R\s*\n", r"", texto)
+    texto = re.sub(r"</pdf2xml>\s*", r"", texto)
+    return texto
+
+
+texto = end(texto)
+
+
+def troca_entradas(texto):
+    texto1 = ""
+
+    texto = re.sub(r"###C (\d+)\s*\n(.*)", r"###C \1 \2", texto)
+
+    while texto != texto1:
+        texto1 = texto
+        texto = re.sub(r"###C (.*)\s*###R (.*)", r"###C \1\2", texto)
+        if texto == texto1:
+            texto = re.sub(r"###C (\d+)\s*\n(.*)", r"###C \1 \2", texto)
+
+    texto = re.sub(r"###C (.*)\n([^%@]*\n)###R", r"###C \1\2", texto)
+    texto = re.sub(r"###C (.*)\n[^%]([fm])", r"###C \1 \2", texto)
+
+    texto = re.sub(r"###C (.*)\n([^%]*)?\n@", r"###C \1\n% \2\n@", texto)
+    return texto
+
+
+texto = troca_entradas(texto)
+
+
+def processa_areas(texto):
+    return re.sub(r"%((?: [A-zÀ-ú]+)+) +((?: [A-zÀ-ú]+)+)", r"% \1;\2", texto)
+
+
+texto = processa_areas(texto)
+
+
+def processa_titulo_EC(texto):
+    return re.sub(
+        r"(###(?:C|E)) (\d+)\s+(\S+(?:\s\S+)*)((?: +\w+)+)",
+        r"\1 \2;\3;\4",
+        texto,
+    )
+
+
+texto = processa_titulo_EC(texto)
+
+
+def get_lang(entry):
+    m = re.match("\s*(es|en|pt|la)\n", entry)
+    if m:
+        return m.group(1)
+    else:
+        return None
+
+
+# dicionario
+dic = {"EC": {}, "ER": {}}
+
+with open("medicina.txt", "w") as txt_file:
+    txt_file.write(texto)
+
+for e in texto.split("###")[1:]:
+    if e[0] == "R":
+        e = e[1:].split("\n")
+        designacao = e[0].strip()
+        referencia = re.sub(" +", " ", " ".join(e[1:]).strip())
+        dic["ER"][designacao] = referencia
+    elif e[0] == "C":
+        e, *linguas = e[1:].split("@")
+        e = [line for line in e[1:].split("\n") if line != ""]
+        [iden, nome, cats] = e[0].split(";")
+        areas = e[1][2:].split(";")
+        areas = [a.strip() for a in areas]
+        iden = iden.strip()
+        dic["EC"][iden] = {
+            "nome": nome.strip(),
+            "categorias_gramaticais": cats.strip().split(),
+            "areas": areas,
+            "traducoes": {},
+        }
+        for entry in linguas[:-1]:
+            lang = get_lang(entry)
+            if lang:
+                dic["EC"][iden]["traducoes"][lang] = [
+                    s for s in entry.strip().split("\n")[1:] if s not in ("", ";")
+                ]
             else:
-                curr_entry.langs[lang] += translation.group(1)
-            content = next(it).group(1)
-            is_colon = False
-
-    return curr_entry
-
-
-def parse_data(data: str):
-    priv_entries = {}
-    it = finditer(r"<text.*?>(.*\S+.*)</text>", data)
-    for match in it:
-        between_text = match.group(1)
-        if is_useful(between_text):
-            is_entry_header = re.match(
-                r"<b>\s*(\d+)\s*(.+?)\s+((?:\w+ )*\w+)</b>", between_text
-            )
-            if is_entry_header:
-                try:
-                    # print(is_entry_header.group(1) + "=>" + is_entry_header.group(2))
-                    entry = parse_full_entry(is_entry_header, it)
-                    priv_entries[entry.id] = entry
-                except StopIteration:
-                    return priv_entries
-
-    return entries
-
-
-with open("medicina.xml", encoding="utf-8") as f:
-    data = f.read()
-    entries = parse_data(data)
-
-    while True:
-        n = int(input("What entry would you like to see? "))
-        if n in entries:
-            print(entries[n])
+                dic["EC"][iden]["sin_var"] = entry.strip()
+        match = re.search(r"Nota.-(.*)", linguas[-1])
+        if match:
+            dic["EC"][iden]["nota"] = match.group(1)
         else:
-            print("Entry not found")
+            lang = get_lang(linguas[-1])
+            if lang:
+                dic["EC"][iden]["traducoes"][lang] = [
+                    s for s in linguas[-1].strip().split("\n")[1:] if s not in ("", ";")
+                ]
+
+
+with open("medicina.json", "w", encoding="utf8") as json_file:
+    json.dump(dic, json_file, indent=8, ensure_ascii=False)
