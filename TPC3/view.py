@@ -7,8 +7,9 @@ class Dicionario:
         for entrada in self.entradas:
             entrada.show()
 
+
 class Entrada:
-    def __init__(self, index, areas, langs) :
+    def __init__(self, index, areas, langs):
         self.index = index
         self.areas = areas
         self.langs = langs
@@ -28,6 +29,6 @@ class Lang:
         self.atributos = atributos
 
     def show(self):
-        print(f"{self.lang_name}: {self.main_def}")
+        print(f"{self.lang_name} {self.main_def}")
         for atr in self.atributos:
-            print("\t\t" + atr)
+            print("\t" + atr)

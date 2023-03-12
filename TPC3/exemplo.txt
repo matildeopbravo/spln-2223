@@ -1,0 +1,32 @@
+Id: 3
+Areas: Anatomía
+Lang:
+    ga: abdmome (m)
+        +syn rexíon abdominal (f)
+        +syn panza (pop.)
+    es: abdomen
+        +syn panza (pop.)
+        +syn región abdominal (pop.)
+    en: abdomen
+        +syn abdomen
+        +syn abdominal region
+        +syn gut (pop.)
+    pt: abdome
+        +var abdômen (Br.)
+        +var abdómen (Pt.)
+        +syn barriga (pop.)
+        +syn região abdominal
+    la: abdomen
+
+Id: 7
+Areas: Fisioloxía ; Anatomía
+Lang:
+    ga: abdución (f)
+        +syn separación
+        +nota Evítese "abducción"
+    es: abducción
+        +syn separación
+    en: abduction
+    pt: abdução
+        +syn separação
+    la: abductio
