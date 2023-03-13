@@ -21,13 +21,16 @@ def t_ATR_LINGUA(t):
     r"syn|var|nota"
     return t
 
+
 def t_ATR_TERMO(t):
     r"\((Br\.|Pt\.|pop\.|m|f|pl|sg)\)"
     return t
 
+
 def t_ID(t):
     r"Id:"
     return t
+
 
 def t_AREAS(t):
     r"Areas:"
@@ -66,6 +69,7 @@ def t_PLUS(t):
 
 t_ignore = " \t"
 
+
 def t_error(t):
     print("Illegal character '%s'" % t.value[0])
     t.lexer.skip(1)
@@ -74,8 +78,8 @@ def t_error(t):
 lexer = lex.lex()
 
 # file = open(sys.argv[1], "r")
-file = open("exemplo.txt", "r")
-program = file.read()
-lexer.input(program)
-for token in lexer:
-    print(token)
+# file = open("exemplo.txt", "r")
+# program = file.read()
+# lexer.input(program)
+# for token in lexer:
+#    print(token)

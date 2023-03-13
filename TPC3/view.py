@@ -2,10 +2,19 @@ class Dicionario:
     def __init__(self, entradas=[]):
         self.entradas = entradas
 
-    def showDic(self):
-        print("Dicionário")
+    def show(self):
+        pagHTML = """<!DOCTYPE html>
+        <html>
+            <head>
+                  <meta charset="UTF-8"/>
+                  <title> Dicionário </title>
+            </head>
+            <body>
+            """
         for entrada in self.entradas:
-            entrada.show()
+            pagHTML += entrada.show()
+        pagHTML += " </body> </html>"
+        return pagHTML
 
 
 class Entrada:
@@ -15,11 +24,14 @@ class Entrada:
         self.langs = langs
 
     def show(self):
-        print(f"Id: {self.index} ")
-        print(f"Areas: {self.areas} ")
-        print("Traduções:")
+        pag = f"""
+            <h3> Entrada {self.index} </h3>
+            <p> <b> Areas: </b> {"".join(self.areas)} </p>
+            <p> <b> Traduções: </b>
+        """
         for lang in self.langs:
-            lang.show()
+            pag += lang.show()
+        return pag
 
 
 class Lang:
@@ -29,6 +41,11 @@ class Lang:
         self.atributos = atributos
 
     def show(self):
-        print(f"{self.lang_name} {self.main_def}")
+        pag = f"""<p> <b>{self.lang_name}</b> {self.main_def}
+                <ul>
+
+        """
         for atr in self.atributos:
-            print("\t" + atr)
+            pag += f"<li> {atr} </li>"
+        pag += "</ul>"
+        return pag

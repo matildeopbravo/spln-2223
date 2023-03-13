@@ -11,7 +11,7 @@ entradas = []
 def p_Dic(p):
     "Dic : ListaEntr"
     p[0] = view.Dicionario(p[1])
-    p[0].showDic()
+    print(p[0].show())
     pass
 
 
@@ -135,4 +135,3 @@ with open("exemplo.txt", "r") as f:
     parser.flag = True
     parser.last = 0
     result = parser.parse(content)
-    print(parser.success)
