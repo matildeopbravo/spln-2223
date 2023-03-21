@@ -32,6 +32,7 @@ text = re.sub(regex_poema, guarda_poema, text, flags=re.S)
 
 # Separar pontuação das palavras
 text = re.sub(r"(?i)(Sr|Sra)\.", lambda abv: abv.group(1).upper(), text)
+
 ############# TODO hifen no meio, travessao, three dots
 punct = r"[.,?!;\-]"
 ending_punct = r".!?:"
