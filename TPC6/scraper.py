@@ -33,6 +33,7 @@ def fetch_articles():
                         <url>{ar.url}</url>
                         <author>{ar.authors}</author>
                         <date>{ar.publish_date}</date>
+                        <tags> {ar.tags} </tags>
                         <text>{ar.text}</text>
                     </article>
             """)
